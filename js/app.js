@@ -29,7 +29,7 @@ function view(id){
  document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));
  document.getElementById(id+"View").classList.add("active");
  document.querySelectorAll(".nav-item").forEach(x=>x.classList.toggle("active",x.dataset.view===id));
- const titles={dashboard:"Career Dashboard",roadmap:"Career Roadmap",skills:"Skills Matrix",projects:"Portfolio Projects",interview:"Interview Lab",evidence:"Evidence & Mastery",settings:"Settings"};
+ const titles={dashboard:"Becoming a Quantitative Risk Professional",roadmap:"Gideon's Roadmap",skills:"Gideon's Skills",projects:"Gideon's Projects",interview:"Interview Practice",evidence:"Evidence & Mastery",settings:"Settings"};
  document.getElementById("pageTitle").textContent=titles[id];
 }
 function renderDashboard(){
@@ -37,20 +37,20 @@ function renderDashboard(){
  const next=ROADMAP.phases.find(p=>p.status==="current")||ROADMAP.phases[0], action=nextSkillAction();
  document.getElementById("dashboardView").innerHTML=`
  <div class="hero">
-  <div><span class="tag">Career identity</span><h2>Quantitative Risk &<br>Financial Analytics</h2>
-  <p>Become an actuarial-finance professional who understands financial risk mathematically and can build the data, analytical models and technology required to solve it.</p></div>
+  <div><span class="tag">GIDEON JUMA · CAREER DIRECTION</span><h2>Becoming a Quantitative Risk &<br>Financial Analytics Professional</h2>
+  <p>Build the mathematical judgement, financial knowledge and engineering ability to solve real risk problems with data, models and technology.</p></div>
   <div class="progress-ring"><div class="ring" style="--p:${pct}%"><b>${pct}%</b></div><small>overall skill mastery</small></div>
  </div>
  <div class="stats">
   <div class="stat"><small>SKILL MASTERY</small><strong>${pct}%</strong><span>Across ${allSkills().length} tracked skills</span></div>
   <div class="stat"><small>SKILLS ≥80%</small><strong>${mastered}</strong><span>Demonstrated strength</span></div>
   <div class="stat"><small>PROJECTS</small><strong>${ps.done}/${ps.total}</strong><span>Portfolio milestones</span></div>
-  <div class="stat"><small>CURRENT PHASE</small><strong>3.1</strong><span>Foundation</span></div>
+  <div class="stat"><small>ACTIVE PHASE</small><strong>${next.title.split(" — ")[0]}</strong><span>Foundation</span></div>
  </div>
  <div class="section-head"><div><h3>Six-layer career architecture</h3><p>Build the professional identity, not a random collection of tools.</p></div></div>
  <div class="grid-3">${ROADMAP.layers.map(l=>`<div class="panel"><span class="layer-num">${l.icon}</span><h4>${l.name}</h4><p>${l.desc}</p></div>`).join("")}</div>
  <div class="section-head"><div><h3>Current objective</h3><p>${next.objective}</p></div><button class="primary" onclick="view('roadmap')">Open roadmap</button></div>
- <div class="panel"><div class="mini-row"><span>Foundation completion</span><b>${Math.round(["Python","SQL","R","Probability & Statistics","Financial Foundations","Git/GitHub","Excel","Data Cleaning"].reduce((a,n)=>a+getSkillPct(n),0)/8)}%</b></div><div class="bar"><i style="width:${Math.round(["Python","SQL","R","Probability & Statistics","Financial Foundations","Git/GitHub","Excel","Data Cleaning"].reduce((a,n)=>a+getSkillPct(n),0)/8)}%"></i></div></div>
+ <div class="panel"><div class="mini-row"><span>Foundation completion</span><b>${Math.round(["Python","SQL","R","Probability","Statistics","Financial Mathematics","Git/GitHub","Excel"].reduce((a,n)=>a+getSkillPct(n),0)/8)}%</b></div><div class="bar"><i style="width:${Math.round(["Python","SQL","R","Probability","Statistics","Financial Mathematics","Git/GitHub","Excel"].reduce((a,n)=>a+getSkillPct(n),0)/8)}%"></i></div></div>
  <div class="next-action"><div><span class="tag">Recommended next action</span><h3>${action?`${action.stage}: ${action.skill.name}`:"Choose a skill to begin"}</h3><p>${action?`Use the evidence checklist to prove this stage, then move to the next one.`:"Start with the foundation skills in the Skills Matrix."}</p></div><button class="primary" onclick="${action?`showSkill('${action.skill.name}')`:`view('skills')`}">${action?"Open skill":"Explore skills"}</button></div>`;
 }
 function renderRoadmap(){

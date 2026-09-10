@@ -1,6 +1,6 @@
 const KEY="quantrisk_tracker_v2";
 const STAGES=["Learn","Practice","Build","Test","Interview","Master"];
-const defaultState={skills:{},projects:{},checks:{},stageChecks:{},streak:0,lastActive:null,theme:"dark"};
+const defaultState={skills:{},projects:{},checks:{},stageChecks:{},streak:0,lastActive:null,theme:"light"};
 let state=JSON.parse(localStorage.getItem(KEY)||"null")||defaultState;
 state.stageChecks=state.stageChecks||{};
 

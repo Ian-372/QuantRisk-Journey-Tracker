@@ -1,8 +1,9 @@
 const KEY="quantrisk_tracker_v2";
 const STAGES=["Learn","Practice","Build","Test","Interview","Master"];
-const defaultState={skills:{},projects:{},checks:{},stageChecks:{},streak:0,lastActive:null,theme:"light"};
+const defaultState={skills:{},projects:{},checks:{},stageChecks:{},learningNotes:{},streak:0,lastActive:null,theme:"light"};
 let state=JSON.parse(localStorage.getItem(KEY)||"null")||defaultState;
 state.stageChecks=state.stageChecks||{};
+state.learningNotes=state.learningNotes||{};
 
 function save(){localStorage.setItem(KEY,JSON.stringify(state));}
 function allSkills(){return ROADMAP.categories.flatMap(c=>c.skills.map(s=>({name:s[0],desc:s[1],cat:c.id})))}
@@ -66,12 +67,13 @@ function renderSkills(){
 }
 function renderSkillList(cat){
  const list=allSkills().filter(s=>s.cat===cat);
- document.getElementById("skillList").innerHTML=list.map(s=>`<div class="skill-card"><div class="skill-title"><b>${s.name}</b><span>${getSkillPct(s.name)}%</span></div><p>${s.desc}</p><div class="bar"><i style="width:${getSkillPct(s.name)}%"></i></div><div class="stage-line"><span>Evidence progress</span><b>${stagePct(s.name)}%</b></div><div class="stage-dots">${skillStages(s.name).map(x=>`<span class="stage-dot ${x.done?"done":""}" title="${x.stage}">${x.done?"✓":"·"}</span>`).join("")}</div><div class="skill-actions"><button class="small-btn" onclick="adjustSkill('${s.name}',-5)">−5</button><button class="small-btn" onclick="adjustSkill('${s.name}',5)">+5</button><button class="small-btn" onclick="adjustSkill('${s.name}',100)">Mastered</button><button class="small-btn" onclick="showSkill('${s.name}')">Evidence</button></div></div>`).join("");
+ document.getElementById("skillList").innerHTML=list.map(s=>`<div class="skill-card"><div class="skill-title"><b>${s.name}</b><span>${getSkillPct(s.name)}%</span></div><p>${s.desc}</p><div class="bar"><i style="width:${getSkillPct(s.name)}%"></i></div><div class="stage-line"><span>Evidence progress</span><b>${stagePct(s.name)}%</b></div><div class="stage-dots">${skillStages(s.name).map(x=>`<span class="stage-dot ${x.done?"done":""}" title="${x.stage}">${x.done?"✓":"·"}</span>`).join("")}</div><div class="learning-status">${state.learningNotes[s.name]?"Learning recorded":"No learning record yet"}</div><div class="skill-actions"><button class="small-btn" onclick="showSkill('${s.name}')">Record learning & evidence</button></div></div>`).join("");
 }
 function filterSkills(id,el){document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));el.classList.add("active");renderSkillList(id)}
 function adjustSkill(name,delta){setSkill(name,delta===100?100:getSkillPct(name)+delta)}
-function showSkill(name){openModal(`<span class="tag">Evidence ladder</span><h2>${name}</h2><p>Mastery is demonstrated capability, not course completion. Check each stage only when you can show the evidence.</p><div class="checklist">${STAGES.map((stage,i)=>`<label class="check-row"><input type="checkbox" onchange="recordStage('${name}',${i},this.checked)" ${state.stageChecks[name+"-"+i]?"checked":""}><span><b>${stage}</b><small>${stageHint(stage)}</small></span></label>`).join("")}</div><div class="modal-progress"><b>${stagePct(name)}% evidence progress</b><div class="bar"><i style="width:${stagePct(name)}%"></i></div></div>`)}
+function showSkill(name){openModal(`<span class="tag">Learning record · ${name}</span><h2>What did Gideon learn?</h2><p>Write the actual capability, concept, problem or project result he can now explain or demonstrate. This record is saved to the skill.</p><textarea id="skillNote" class="learning-input" placeholder="Example: I can write a SQL window function to rank loan defaults by customer segment...">${state.learningNotes[name]||""}</textarea><button class="primary" onclick="saveSkillNote('${name}')">Save learning record</button><div class="evidence-divider"><span>Evidence ladder</span></div><p>Check each stage only when the evidence is real.</p><div class="checklist">${STAGES.map((stage,i)=>`<label class="check-row"><input type="checkbox" onchange="recordStage('${name}',${i},this.checked)" ${state.stageChecks[name+"-"+i]?"checked":""}><span><b>${stage}</b><small>${stageHint(stage)}</small></span></label>`).join("")}</div><div class="modal-progress"><b>${stagePct(name)}% evidence progress</b><div class="bar"><i style="width:${stagePct(name)}%"></i></div></div>`)}
 function stageHint(stage){return {Learn:"Explain the concept and its assumptions.",Practice:"Solve guided and independent exercises.",Build:"Use it in a financial or risk project.",Test:"Validate outputs, edge cases and failure modes.",Interview:"Answer a realistic question clearly.",Master:"Teach it or defend a decision using it."}[stage]}
+function saveSkillNote(name){const note=document.getElementById("skillNote").value.trim();if(note){state.learningNotes[name]=note}else{delete state.learningNotes[name]}touch();save();render();showSkill(name)}
 function recordStage(name,i,v){state.stageChecks[name+"-"+i]=v;state.skills[name]=Math.max(getSkillPct(name),stagePct(name));touch();save();render()}
 function recordCheck(k,v){state.checks[k]=v;touch();save();render()}
 function renderProjects(){
@@ -96,7 +98,7 @@ function renderSettings(){
 }
 function openModal(html){document.getElementById("modalBody").innerHTML=html;document.getElementById("modal").classList.remove("hidden")}
 function closeModal(){document.getElementById("modal").classList.add("hidden")}
-function resetAll(){if(confirm("Reset all tracked progress?")){state={...defaultState,skills:{},projects:{},checks:{},stageChecks:{}};save();render()}}
+function resetAll(){if(confirm("Reset all tracked progress?")){state={...defaultState,skills:{},projects:{},checks:{},stageChecks:{},learningNotes:{}};save();render()}}
 function render(){renderDashboard();renderRoadmap();renderSkills();renderProjects();renderInterview();renderEvidence();renderSettings();document.getElementById("streakValue").textContent=state.streak;document.body.classList.toggle("light",state.theme==="light")}
 document.querySelectorAll(".nav-item").forEach(b=>b.addEventListener("click",()=>view(b.dataset.view)));
 document.getElementById("modalClose").onclick=closeModal;

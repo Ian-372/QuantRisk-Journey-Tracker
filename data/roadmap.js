@@ -26,7 +26,7 @@ const ROADMAP = {
       id:"y41", title:"Year 4.1 — Cloud & Production", period:"LATER", status:"future",
       objective:"Move from notebooks to production-grade financial/risk systems.",
       skills:["AWS","Docker","REST APIs","Testing","Logging","CI/CD","Spark","Data Warehouses","Model Monitoring"],
-      projects:["Production Financial Data Platform"],
+      projects:["Financial Data Pipeline"],
       outcomes:["Deploy a working analytics system","Use cloud data services","Build reliable and documented software"]
     },
     {

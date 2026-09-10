@@ -1,9 +1,10 @@
 const KEY="quantrisk_tracker_v2";
 const STAGES=["Learn","Practice","Build","Test","Interview","Master"];
-const defaultState={skills:{},projects:{},checks:{},stageChecks:{},learningNotes:{},streak:0,lastActive:null,theme:"light"};
+const defaultState={skills:{},projects:{},checks:{},stageChecks:{},learningNotes:{},skillUpdated:{},streak:0,lastActive:null,theme:"light"};
 let state=JSON.parse(localStorage.getItem(KEY)||"null")||defaultState;
 state.stageChecks=state.stageChecks||{};
 state.learningNotes=state.learningNotes||{};
+state.skillUpdated=state.skillUpdated||{};
 
 function save(){localStorage.setItem(KEY,JSON.stringify(state));}
 function allSkills(){return ROADMAP.categories.flatMap(c=>c.skills.map(s=>({name:s[0],desc:s[1],cat:c.id})))}
@@ -18,6 +19,7 @@ function nextSkillAction(){
 }
 function setSkill(name,pct){
   state.skills[name]=Math.max(0,Math.min(100,Number(pct)));
+  state.skillUpdated[name]=new Date().toISOString();
   touch(); save(); render();
 }
 function touch(){
@@ -26,6 +28,10 @@ function touch(){
 }
 function avgSkill(){let s=allSkills();return Math.round(s.reduce((a,x)=>a+getSkillPct(x.name),0)/s.length)}
 function projectStats(){let vals=Object.values(state.projects);return {done:vals.filter(x=>x==="done").length,total:ROADMAP.projects.length}}
+function phaseStats(phase){
+ const skills=phase.skills.map(name=>({name,pct:getSkillPct(name)})), projects=phase.projects.map(name=>ROADMAP.projects.find(project=>project.name===name)), skillProgress=skills.length?Math.round(skills.reduce((total,skill)=>total+skill.pct,0)/skills.length):0, projectProgress=projects.length?Math.round(projects.filter(project=>state.projects[project?.id]==="done").length/projects.length*100):0;
+ return {skills,projects:projects.filter(Boolean),skillProgress,projectProgress,progress:Math.round(skillProgress*.7+projectProgress*.3)};
+}
 function view(id){
  document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));
  document.getElementById(id+"View").classList.add("active");
@@ -35,7 +41,7 @@ function view(id){
 }
 function renderDashboard(){
  const pct=avgSkill(), ps=projectStats(), mastered=allSkills().filter(x=>getSkillPct(x.name)>=80).length;
- const next=ROADMAP.phases.find(p=>p.status==="current")||ROADMAP.phases[0], action=nextSkillAction();
+ const phaseProgress=ROADMAP.phases.map(phaseStats), activePhaseIndex=Math.max(0,phaseProgress.findIndex(stat=>stat.progress<100)), next=ROADMAP.phases[activePhaseIndex], action=nextSkillAction();
  document.getElementById("dashboardView").innerHTML=`
  <div class="hero">
   <div><span class="tag">GIDEON JUMA · CAREER DIRECTION</span><h2>Becoming a Quantitative Risk &<br>Financial Analytics Professional</h2>
@@ -55,26 +61,35 @@ function renderDashboard(){
  <div class="next-action"><div><span class="tag">Recommended next action</span><h3>${action?`${action.stage}: ${action.skill.name}`:"Choose a skill to begin"}</h3><p>${action?`Use the evidence checklist to prove this stage, then move to the next one.`:"Start with the foundation skills in the Skills Matrix."}</p></div><button class="primary" onclick="${action?`showSkill('${action.skill.name}')`:`view('skills')`}">${action?"Open skill":"Explore skills"}</button></div>`;
 }
 function renderRoadmap(){
- document.getElementById("roadmapView").innerHTML=`<div class="section-head"><div><h3>Year 3.1 → Year 4.2</h3><p>Each phase has skills, projects and evidence-based outcomes.</p></div></div>`+
- ROADMAP.phases.map((p,i)=>`<article class="phase"><div class="phase-top"><div><span class="tag">${p.period} · ${p.status}</span><h3>${p.title}</h3><p>${p.objective}</p></div><span class="phase-badge">${i===0?"ACTIVE":"PLANNED"}</span></div><strong style="font-size:10px;color:#8e96a1">SKILLS</strong><div class="chips">${p.skills.map(x=>`<span class="chip">${x}</span>`).join("")}</div><strong style="font-size:10px;color:#8e96a1">PROJECTS</strong><div class="chips">${p.projects.map(x=>`<span class="chip">${x}</span>`).join("")}</div><ul class="outcomes">${p.outcomes.map(x=>`<li>${x}</li>`).join("")}</ul></article>`).join("");
+ const stats=ROADMAP.phases.map(phaseStats), activeIndex=Math.max(0,stats.findIndex(stat=>stat.progress<100));
+ document.getElementById("roadmapView").innerHTML=`<div class="section-head"><div><h3>Gideon's path to job readiness</h3><p>Move through each phase by recording skill evidence and completing the projects that prove it.</p></div></div><div class="roadmap-flow">${ROADMAP.phases.map((p,i)=>`<div class="flow-step ${i<activeIndex?"complete":""} ${i===activeIndex?"current":""}"><span>${i<activeIndex?"✓":String(i+1).padStart(2,"0")}</span><b>${p.title.split(" — ")[0]}</b><small>${stats[i].progress}%</small></div>`).join("")}</div>`+
+ ROADMAP.phases.map((p,i)=>{const stat=stats[i],status=i<activeIndex?"COMPLETE":i===activeIndex?"CURRENT FOCUS":"UP NEXT";return `<article class="phase ${i===activeIndex?"phase-current":""}"><div class="phase-top"><div><span class="tag">${p.period} · ${status}</span><h3>${p.title}</h3><p>${p.objective}</p></div><span class="phase-badge">${stat.progress}%</span></div><div class="phase-progress"><div><span>Phase progress</span><b>${stat.progress}%</b></div><div class="bar"><i style="width:${stat.progress}%"></i></div><div class="phase-split"><span>Skills ${stat.skillProgress}%</span><span>Projects ${stat.projectProgress}%</span></div></div><strong class="phase-label">SKILLS TO DEVELOP</strong><div class="chips">${stat.skills.map(skill=>`<button class="chip chip-button" onclick="focusSkill('${skill.name}')">${skill.name}<b>${skill.pct}%</b></button>`).join("")}</div><strong class="phase-label">PROOF PROJECTS</strong><div class="chips">${p.projects.map(name=>{const project=ROADMAP.projects.find(item=>item.name===name),done=project&&state.projects[project.id]==="done";return `<span class="chip project-chip ${done?"chip-done":""}">${done?"✓ ":""}${name}</span>`}).join("")}</div><ul class="outcomes">${p.outcomes.map(x=>`<li>${x}</li>`).join("")}</ul></article>`}).join("");
 }
+function focusSkill(name){const skill=allSkills().find(item=>item.name===name);view("skills");setTimeout(()=>{const category=skill&&document.querySelector(`.tab[data-category="${skill.cat}"]`);if(category)filterSkills(skill.cat,category);const skillCard=[...document.querySelectorAll(".skill-card")].find(card=>card.textContent.includes(name));skillCard?.scrollIntoView({behavior:"smooth",block:"center"})},0)}
 function renderSkills(){
  const cats=ROADMAP.categories;
- document.getElementById("skillsView").innerHTML=`<div class="section-head"><div><h3>Skill mastery matrix</h3><p>Move a skill only when you can demonstrate it. Every skill follows Learn → Practice → Build → Test → Interview → Master.</p></div></div>
- <div class="skill-tabs">${cats.map((c,i)=>`<button class="tab ${i===0?"active":""}" onclick="filterSkills('${c.id}',this)">${c.name}</button>`).join("")}</div>
+ const recorded=allSkills().filter(s=>state.learningNotes[s.name]).length, active=allSkills().filter(s=>getSkillPct(s.name)>0).length, focus=allSkills().sort((a,b)=>getSkillPct(a.name)-getSkillPct(b.name)).slice(0,3);
+ document.getElementById("skillsView").innerHTML=`<div class="section-head"><div><h3>Skill mastery matrix</h3><p>Capture what you can actually do, then use evidence to move from learning to mastery.</p></div></div>
+ <div class="skill-insights"><div><span>Learning records</span><b>${recorded}/${allSkills().length}</b><small>Skills with notes</small></div><div><span>Skills in progress</span><b>${active}</b><small>With recorded evidence</small></div><div><span>Growth focus</span><b>${focus[0]?.name||"Start here"}</b><small>Lowest current mastery</small></div></div>
+ <div class="skill-controls"><label class="skill-search"><span>⌕</span><input id="skillSearch" type="search" placeholder="Search skills..." oninput="updateSkillMatrix()"></label><select id="skillSort" onchange="updateSkillMatrix()"><option value="focus">Sort: growth focus</option><option value="mastery">Sort: highest mastery</option><option value="recent">Sort: recently updated</option><option value="recorded">Sort: learning recorded</option></select></div>
+ <div class="skill-tabs">${cats.map((c,i)=>`<button class="tab ${i===0?"active":""}" data-category="${c.id}" onclick="filterSkills('${c.id}',this)">${c.name}</button>`).join("")}</div>
  <div id="skillList" class="skill-list"></div>`;
  renderSkillList(cats[0].id);
 }
 function renderSkillList(cat){
- const list=allSkills().filter(s=>s.cat===cat);
- document.getElementById("skillList").innerHTML=list.map(s=>`<div class="skill-card"><div class="skill-title"><b>${s.name}</b><span>${getSkillPct(s.name)}%</span></div><p>${s.desc}</p><div class="bar"><i style="width:${getSkillPct(s.name)}%"></i></div><div class="stage-line"><span>Mastery pathway</span><b>${stagePct(s.name)}% complete</b></div><div class="stage-steps">${skillStages(s.name).map(x=>`<span class="stage-step ${x.done?"done":""}"><span class="stage-check">${x.done?"✓":""}</span><span>${x.stage}</span></span>`).join("")}</div><div class="learning-status">${state.learningNotes[s.name]?"Learning recorded":"No learning record yet"}</div><div class="skill-actions"><button class="small-btn" onclick="showSkill('${s.name}')">Record learning & evidence</button></div></div>`).join("");
+ const query=document.getElementById("skillSearch")?.value.toLowerCase()||"", sort=document.getElementById("skillSort")?.value||"focus";
+ let list=allSkills().filter(s=>s.cat===cat&&(!query||s.name.toLowerCase().includes(query)||s.desc.toLowerCase().includes(query)));
+ list.sort((a,b)=>sort==="mastery"?getSkillPct(b.name)-getSkillPct(a.name):sort==="recent"?(new Date(state.skillUpdated[b.name]||0)-new Date(state.skillUpdated[a.name]||0)):sort==="recorded"?Number(!!state.learningNotes[b.name])-Number(!!state.learningNotes[a.name]):getSkillPct(a.name)-getSkillPct(b.name));
+ document.getElementById("skillList").innerHTML=list.length?list.map(s=>`<div class="skill-card"><div class="skill-title"><b>${s.name}</b><span>${getSkillPct(s.name)}%</span></div><p>${s.desc}</p><div class="bar"><i style="width:${getSkillPct(s.name)}%"></i></div><div class="stage-line"><span>Mastery pathway</span><b>${stagePct(s.name)}% complete</b></div><div class="stage-steps">${skillStages(s.name).map(x=>`<span class="stage-step ${x.done?"done":""}"><span class="stage-check">${x.done?"✓":""}</span><span>${x.stage}</span></span>`).join("")}</div><div class="learning-status">${state.learningNotes[s.name]?"Learning recorded":"No learning record yet"}${state.skillUpdated[s.name]?` · Updated ${relativeDate(state.skillUpdated[s.name])}`:""}</div><div class="skill-actions"><button class="small-btn" onclick="showSkill('${s.name}')">Record learning & evidence</button></div></div>`).join(""):"<div class=\"empty-state\">No skills match this search. Try another term or clear the filter.</div>";
 }
-function filterSkills(id,el){document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));el.classList.add("active");renderSkillList(id)}
+function relativeDate(value){const days=Math.floor((Date.now()-new Date(value).getTime())/86400000);return days<=0?"today":days===1?"yesterday":`${days} days ago`}
+function filterSkills(id,el){document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));el.classList.add("active");document.getElementById("skillList").dataset.category=id;renderSkillList(id)}
+function updateSkillMatrix(){renderSkillList(document.getElementById("skillList").dataset.category||"core")}
 function adjustSkill(name,delta){setSkill(name,delta===100?100:getSkillPct(name)+delta)}
 function showSkill(name){openModal(`<span class="tag">Learning record · ${name}</span><h2>What did Gideon learn?</h2><p>Write the actual capability, concept, problem or project result he can now explain or demonstrate. This record is saved to the skill.</p><textarea id="skillNote" class="learning-input" placeholder="Example: I can write a SQL window function to rank loan defaults by customer segment...">${state.learningNotes[name]||""}</textarea><button class="primary" onclick="saveSkillNote('${name}')">Save learning record</button><div class="evidence-divider"><span>Evidence ladder</span></div><p>Check each stage only when the evidence is real.</p><div class="checklist">${STAGES.map((stage,i)=>`<label class="check-row"><input type="checkbox" onchange="recordStage('${name}',${i},this.checked)" ${state.stageChecks[name+"-"+i]?"checked":""}><span><b>${stage}</b><small>${stageHint(stage)}</small></span></label>`).join("")}</div><div class="modal-progress"><b>${stagePct(name)}% evidence progress</b><div class="bar"><i style="width:${stagePct(name)}%"></i></div></div>`)}
 function stageHint(stage){return {Learn:"Explain the concept and its assumptions.",Practice:"Solve guided and independent exercises.",Build:"Use it in a financial or risk project.",Test:"Validate outputs, edge cases and failure modes.",Interview:"Answer a realistic question clearly.",Master:"Teach it or defend a decision using it."}[stage]}
-function saveSkillNote(name){const note=document.getElementById("skillNote").value.trim();if(note){state.learningNotes[name]=note}else{delete state.learningNotes[name]}touch();save();render();showSkill(name)}
-function recordStage(name,i,v){state.stageChecks[name+"-"+i]=v;state.skills[name]=Math.max(getSkillPct(name),stagePct(name));touch();save();render()}
+function saveSkillNote(name){const note=document.getElementById("skillNote").value.trim();if(note){state.learningNotes[name]=note}else{delete state.learningNotes[name]}state.skillUpdated[name]=new Date().toISOString();touch();save();render();showSkill(name)}
+function recordStage(name,i,v){state.stageChecks[name+"-"+i]=v;state.skills[name]=Math.max(getSkillPct(name),stagePct(name));state.skillUpdated[name]=new Date().toISOString();touch();save();render()}
 function recordCheck(k,v){state.checks[k]=v;touch();save();render()}
 function renderProjects(){
  document.getElementById("projectsView").innerHTML=`<div class="section-head"><div><h3>Portfolio that proves capability</h3><p>Six projects move from analysis to production-grade financial intelligence.</p></div></div><div class="project-grid">${ROADMAP.projects.map(p=>`<article class="project-card"><div class="project-meta"><span>${p.phase}</span><span>${p.level}</span></div><h3>${p.name}</h3><p>${p.brief}</p><strong style="font-size:9px;color:#737c88;letter-spacing:.1em">STACK</strong><div class="chips"><span class="chip">${p.stack}</span></div><strong style="font-size:9px;color:#737c88;letter-spacing:.1em">DELIVERABLES</strong><ul class="deliverables">${p.deliverables.map(x=>`<li>${x}</li>`).join("")}</ul><div class="project-footer"><span class="status ${state.projects[p.id]==="done"?"done":""}">${state.projects[p.id]==="done"?"COMPLETED":"NOT STARTED"}</span><button class="${state.projects[p.id]==="done"?"small-btn":"primary"}" onclick="toggleProject('${p.id}')">${state.projects[p.id]==="done"?"Reopen":"Mark complete"}</button></div></article>`).join("")}</div>`;
@@ -98,7 +113,7 @@ function renderSettings(){
 }
 function openModal(html){document.getElementById("modalBody").innerHTML=html;document.getElementById("modal").classList.remove("hidden")}
 function closeModal(){document.getElementById("modal").classList.add("hidden")}
-function resetAll(){if(confirm("Reset all tracked progress?")){state={...defaultState,skills:{},projects:{},checks:{},stageChecks:{},learningNotes:{}};save();render()}}
+function resetAll(){if(confirm("Reset all tracked progress?")){state={...defaultState,skills:{},projects:{},checks:{},stageChecks:{},learningNotes:{},skillUpdated:{}};save();render()}}
 function render(){renderDashboard();renderRoadmap();renderSkills();renderProjects();renderInterview();renderEvidence();renderSettings();document.getElementById("streakValue").textContent=state.streak;document.body.classList.toggle("light",state.theme==="light")}
 document.querySelectorAll(".nav-item").forEach(b=>b.addEventListener("click",()=>view(b.dataset.view)));
 document.getElementById("modalClose").onclick=closeModal;
